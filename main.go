@@ -47,6 +47,7 @@ func handleConnection(conn net.Conn) {
 	}
 
 	fmt.Printf("REQUEST: %v\n", req)
+	res := http.NewResponse(conn)
 
 	if req.Method == "POST" {
 		l, err := strconv.Atoi(req.Headers["Content-Length"])
@@ -63,7 +64,9 @@ func handleConnection(conn net.Conn) {
 			log.Printf("error writing to file: %v", err)
 			return
 		}
-
+		res.SendStatus(200)
+	} else if req.Method == "GET" {
+		res.SendFile(req.URL[1:])
 	}
 
 	// if _, err = io.Copy(conn, f); err != nil {

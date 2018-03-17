@@ -17,8 +17,8 @@ type Request struct {
 	*bufio.Reader
 }
 
-var requestLine = regexp.MustCompile(`^(\w+) ([?=&/\w\-]+) (HTTP|HTTPS)/(\d.\d)\r?\n$`)
-var header = regexp.MustCompile(`^([\w-]+): ([\*:/\.\w/]+)\r?\n$`)
+var requestLine = regexp.MustCompile(`^(\w+) ([?=&/\w\-\.]+) (HTTP|HTTPS)/(\d.\d)\r?\n$`)
+var header = regexp.MustCompile(`^([\w-]+): (.+)\r?\n$`)
 
 func Parse(conn net.Conn) (*Request, error) {
 
@@ -35,7 +35,7 @@ func Parse(conn net.Conn) (*Request, error) {
 
 	matches := requestLine.FindStringSubmatch(line)
 	if len(matches) != 5 {
-		return nil, fmt.Errorf("request line is invalid: %s", line)
+		return nil, fmt.Errorf("request line is invalid: %s expected 5 matches got: %d", line, len(matches))
 	}
 	if matches[1] == "POST" || matches[1] == "GET" {
 		req.Method = matches[1]

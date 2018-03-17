@@ -1,5 +1,0 @@
-Hey
-this is a data file
-That i am gonna send over
-it is super secret.
-so of course i will use tcp

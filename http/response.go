@@ -39,6 +39,24 @@ func (res *response) Status(status int) {
 	res.status = status
 }
 
+func (res response) Send(data string) error {
+	res.Set("Content-Length", fmt.Sprintf("%d", len(data)))
+
+	resp := fmt.Sprintf(
+		"HTTP/1.0 %d %s\r\n%s\r\n%s",
+		res.status,
+		status2Message[res.status],
+		res.headers,
+		data,
+	)
+
+	if _, err := fmt.Fprint(res, resp); err != nil {
+		return fmt.Errorf("error writing to tcp connection: %v", err)
+	}
+
+	return nil
+}
+
 func (res response) SendFile(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -47,6 +65,8 @@ func (res response) SendFile(path string) error {
 		}
 		return res.SendStatus(500)
 	}
+	defer f.Close()
+
 	stats, err := f.Stat()
 	if err != nil {
 		res.SendStatus(500)
@@ -61,7 +81,6 @@ func (res response) SendFile(path string) error {
 	)
 
 	r := io.MultiReader(strings.NewReader(resp), f)
-
 	if _, err = io.Copy(res, r); err != nil {
 		return fmt.Errorf("error writing file to tcp connection: %v", err)
 	}
@@ -84,6 +103,7 @@ func (res response) SendStatus(status int) error {
 	return nil
 }
 
+// NewResponse returns a pointer to a response object given a net.Conn
 func NewResponse(conn net.Conn) *response {
 	defaultHeaders := map[string]string{
 		"Connection": "keep-alive",
@@ -92,5 +112,6 @@ func NewResponse(conn net.Conn) *response {
 	return &response{
 		headers: defaultHeaders,
 		Conn:    conn,
+		status:  200,
 	}
 }

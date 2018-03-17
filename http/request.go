@@ -3,7 +3,6 @@ package http
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"net"
 	"regexp"
 )
@@ -17,8 +16,8 @@ type Request struct {
 	*bufio.Reader
 }
 
-var requestLine = regexp.MustCompile(`^(\w+) ([?=&/\w\-\.]+) (HTTP|HTTPS)/(\d.\d)\r?\n$`)
-var header = regexp.MustCompile(`^([\w-]+): (.+)\r?\n$`)
+var requestLine = regexp.MustCompile(`^(\w+) ([?=&/\w\-\.]+) (HTTP|HTTPS)/(\d.\d)\r\n$`)
+var header = regexp.MustCompile(`^([\w-]+): (.+)\r\n$`)
 
 func Parse(conn net.Conn) (*Request, error) {
 
@@ -29,7 +28,6 @@ func Parse(conn net.Conn) (*Request, error) {
 
 	line, err := req.ReadString('\n')
 	if err != nil {
-		log.Printf("Could not parse request-line: %v\n", err)
 		return nil, fmt.Errorf("could not parse request-line: %v", err)
 	}
 

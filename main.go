@@ -8,7 +8,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 func main() {
@@ -38,7 +40,6 @@ func main() {
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	// f, err := os.Open("./data.txt")
 
 	req, err := http.Parse(conn)
 	if err != nil {
@@ -46,13 +47,12 @@ func handleConnection(conn net.Conn) {
 		return
 	}
 
-	fmt.Printf("REQUEST: %v\n", req)
 	res := http.NewResponse(conn)
 
 	if req.Method == "POST" {
 		l, err := strconv.Atoi(req.Headers["Content-Length"])
 		if err != nil {
-			log.Printf("invalid content length: %s", req.Headers["Content-Length"])
+			log.Printf("could not read content-length: %v. value: %v", err, req.Headers["Content-Length"])
 			return
 		}
 		f, err := os.Create(req.URL[1:])
@@ -60,17 +60,35 @@ func handleConnection(conn net.Conn) {
 			log.Printf("could not open file %s for writing: %v", req.URL[1:], err)
 			return
 		}
+
+		defer f.Close()
+
 		if _, err = io.CopyN(f, req, int64(l)); err != nil {
 			log.Printf("error writing to file: %v", err)
 			return
 		}
-		res.SendStatus(200)
+
+		if err = res.SendStatus(200); err != nil {
+			log.Printf("could not send response: %v", err)
+		}
+
 	} else if req.Method == "GET" {
-		res.SendFile(req.URL[1:])
+
+		if req.URL == "/" {
+			files, err := filepath.Glob("*")
+			if err != nil {
+				log.Printf("could not read directory: %v", err)
+				return
+			}
+			if err = res.Send(strings.Join(files, "\r\n")); err != nil {
+				log.Printf("could not send response: %v", err)
+			}
+		} else {
+			if err = res.SendFile(req.URL[1:]); err != nil {
+				log.Printf("could not send response: %v", err)
+			}
+		}
+
 	}
 
-	// if _, err = io.Copy(conn, f); err != nil {
-	// 	log.Printf("error writing file to connection: %v", err)
-	// 	return
-	// }
 }

@@ -35,8 +35,9 @@ func (res response) Set(name, value string) {
 	res.headers[name] = value
 }
 
-func (res *response) Status(status int) {
+func (res *response) Status(status int) *response {
 	res.status = status
+	return res
 }
 
 func (res response) Send(data string) error {
@@ -106,7 +107,7 @@ func (res response) SendStatus(status int) error {
 // NewResponse returns a pointer to a response object given a net.Conn
 func NewResponse(conn net.Conn) *response {
 	defaultHeaders := map[string]string{
-		"Connection": "keep-alive",
+		"Connection": "close",
 		"Date":       time.Now().Format(time.UnixDate),
 	}
 	return &response{

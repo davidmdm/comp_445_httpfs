@@ -13,13 +13,17 @@ import (
 	"strings"
 )
 
+var options = map[string]string{}
+
 func main() {
 
 	// v := flag.Bool("v", false, "Verbose mode")
 	p := flag.String("p", "8080", "Port")
-	// d := flag.String("d", "fs", "directory to write files to")
+	d := flag.String("d", ".", "directory to write files to")
 
 	flag.Parse()
+
+	options["d"] = *d
 
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%s", *p))
 	if err != nil {
@@ -50,12 +54,27 @@ func handleConnection(conn net.Conn) {
 	res := http.NewResponse(conn)
 
 	if req.Method == "POST" {
+
+		if req.URL == "/" {
+			if err = res.Status(400).Send("Cannot upload new file under path`/`... please choose a filename\r\n"); err != nil {
+				log.Printf("could not send response: %v", err)
+			}
+			return
+		}
+
+		if _, prs := req.Headers["Content-Length"]; !prs {
+			if err = res.Status(400).Send("Content-Length header is required"); err != nil {
+				log.Printf("could not send response: %v", err)
+			}
+			return
+		}
+
 		l, err := strconv.Atoi(req.Headers["Content-Length"])
 		if err != nil {
 			log.Printf("could not read content-length: %v. value: %v", err, req.Headers["Content-Length"])
 			return
 		}
-		f, err := os.Create(req.URL[1:])
+		f, err := os.Create(options["d"] + req.URL)
 		if err != nil {
 			log.Printf("could not open file %s for writing: %v", req.URL[1:], err)
 			return

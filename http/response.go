@@ -1,6 +1,7 @@
 package http
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -28,6 +29,7 @@ func (h headers) String() (ret string) {
 type response struct {
 	status  int
 	headers headers
+	verbose bool
 	net.Conn
 }
 
@@ -43,15 +45,22 @@ func (res *response) Status(status int) *response {
 func (res response) Send(data string) error {
 	res.Set("Content-Length", fmt.Sprintf("%d", len(data)))
 
-	resp := fmt.Sprintf(
+	resp := strings.NewReader(fmt.Sprintf(
 		"HTTP/1.0 %d %s\r\n%s\r\n%s",
 		res.status,
 		status2Message[res.status],
 		res.headers,
 		data,
-	)
+	))
 
-	if _, err := fmt.Fprint(res, resp); err != nil {
+	var r io.Reader
+	if res.verbose {
+		r = io.TeeReader(resp, os.Stdout)
+	} else {
+		r = resp
+	}
+
+	if _, err := io.Copy(res, r); err != nil {
 		return fmt.Errorf("error writing to tcp connection: %v", err)
 	}
 
@@ -74,14 +83,25 @@ func (res response) SendFile(path string) error {
 	}
 	res.Set("Content-Length", fmt.Sprintf("%d", stats.Size()))
 
-	resp := fmt.Sprintf(
-		"HTTP/1.0 %d %s\r\n%s\r\n",
-		200,
-		status2Message[200],
-		res.headers,
+	resp := io.MultiReader(
+		strings.NewReader(
+			fmt.Sprintf(
+				"HTTP/1.0 %d %s\r\n%s\r\n",
+				200,
+				status2Message[200],
+				res.headers,
+			),
+		),
+		f,
 	)
 
-	r := io.MultiReader(strings.NewReader(resp), f)
+	var r io.Reader
+	if res.verbose {
+		r = io.TeeReader(resp, os.Stdout)
+	} else {
+		r = resp
+	}
+
 	if _, err = io.Copy(res, r); err != nil {
 		return fmt.Errorf("error writing file to tcp connection: %v", err)
 	}
@@ -97,6 +117,9 @@ func (res response) SendStatus(status int) error {
 		status2Message[status],
 		res.headers,
 	)
+	if res.verbose {
+		fmt.Println(resp)
+	}
 	_, err := fmt.Fprintf(res, resp)
 	if err != nil {
 		return fmt.Errorf("error sending response: %v", err)
@@ -106,6 +129,9 @@ func (res response) SendStatus(status int) error {
 
 // NewResponse returns a pointer to a response object given a net.Conn
 func NewResponse(conn net.Conn) *response {
+
+	v := flag.Lookup("v").Value.(flag.Getter).Get().(bool)
+
 	defaultHeaders := map[string]string{
 		"Connection": "close",
 		"Date":       time.Now().Format(time.UnixDate),
@@ -114,5 +140,6 @@ func NewResponse(conn net.Conn) *response {
 		headers: defaultHeaders,
 		Conn:    conn,
 		status:  200,
+		verbose: v,
 	}
 }

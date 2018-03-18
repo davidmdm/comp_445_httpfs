@@ -2,6 +2,7 @@ package http
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"net"
 	"regexp"
@@ -21,6 +22,8 @@ var header = regexp.MustCompile(`^([\w-]+): (.+)\r\n$`)
 
 func Parse(conn net.Conn) (*Request, error) {
 
+	v := flag.Lookup("v").Value.(flag.Getter).Get().(bool)
+
 	req := &Request{
 		Headers: map[string]string{},
 		Reader:  bufio.NewReader(conn),
@@ -29,6 +32,10 @@ func Parse(conn net.Conn) (*Request, error) {
 	line, err := req.ReadString('\n')
 	if err != nil {
 		return nil, fmt.Errorf("could not parse request-line: %v", err)
+	}
+
+	if v {
+		fmt.Print(line)
 	}
 
 	matches := requestLine.FindStringSubmatch(line)
@@ -48,6 +55,9 @@ func Parse(conn net.Conn) (*Request, error) {
 		hl, err := req.ReadString('\n')
 		if err != nil {
 			return nil, fmt.Errorf("error parsing headers: %v", err)
+		}
+		if v {
+			fmt.Print(hl)
 		}
 		if hl == "\r\n" {
 			break

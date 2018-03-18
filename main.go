@@ -13,21 +13,24 @@ import (
 	"strings"
 )
 
-var options = map[string]string{}
+var directory *string
+var verbose *bool
 
 func main() {
 
-	// v := flag.Bool("v", false, "Verbose mode")
-	p := flag.String("p", "8080", "Port")
-	d := flag.String("d", ".", "directory to write files to")
+	port := flag.String("p", "8080", "Port")
+	verbose = flag.Bool("v", false, "")
+	directory = flag.String("d", ".", "directory to write files to")
 
 	flag.Parse()
 
-	options["d"] = *d
+	if *verbose {
+		fmt.Println("Running server in verbose mode\n")
+	}
 
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%s", *p))
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%s", *port))
 	if err != nil {
-		log.Fatalf("error listening on port %s: %v", *p, err)
+		log.Fatalf("error listening on port %s: %v", *port, err)
 	}
 	defer ln.Close()
 
@@ -74,7 +77,7 @@ func handleConnection(conn net.Conn) {
 			log.Printf("could not read content-length: %v. value: %v", err, req.Headers["Content-Length"])
 			return
 		}
-		f, err := os.Create(options["d"] + req.URL)
+		f, err := os.Create(*directory + req.URL)
 		if err != nil {
 			log.Printf("could not open file %s for writing: %v", req.URL[1:], err)
 			return
@@ -82,9 +85,20 @@ func handleConnection(conn net.Conn) {
 
 		defer f.Close()
 
-		if _, err = io.CopyN(f, req, int64(l)); err != nil {
+		var r io.Reader
+		if *verbose {
+			r = io.TeeReader(req, os.Stdout)
+		} else {
+			r = req
+		}
+
+		if _, err = io.CopyN(f, r, int64(l)); err != nil {
 			log.Printf("error writing to file: %v", err)
 			return
+		}
+
+		if *verbose {
+			fmt.Print("\n\n")
 		}
 
 		if err = res.SendStatus(200); err != nil {

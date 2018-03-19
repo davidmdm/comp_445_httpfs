@@ -11,10 +11,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 var directory *string
 var verbose *bool
+
+var f2m = map[string]*sync.Mutex{}
 
 func main() {
 
@@ -26,6 +29,15 @@ func main() {
 
 	if *verbose {
 		fmt.Println("Running server in verbose mode\n")
+	}
+
+	filenames, err := getFileNames(*directory)
+	if err != nil {
+		log.Fatal("Could not initialize server directory")
+	}
+
+	for _, file := range filenames {
+		f2m[file] = &sync.Mutex{}
 	}
 
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%s", *port))
@@ -77,12 +89,23 @@ func handleConnection(conn net.Conn) {
 			log.Printf("could not read content-length: %v. value: %v", err, req.Headers["Content-Length"])
 			return
 		}
-		f, err := os.Create(*directory + req.URL)
+
+		filepath := *directory + req.URL
+		mutex := f2m[filepath]
+
+		if mutex != nil {
+			mutex.Lock()
+			defer mutex.Unlock()
+		} else {
+			f2m[filepath] = &sync.Mutex{}
+			f2m[filepath].Lock()
+			defer f2m[filepath].Unlock()
+		}
+		f, err := os.Create(filepath)
 		if err != nil {
 			log.Printf("could not open file %s for writing: %v", req.URL[1:], err)
 			return
 		}
-
 		defer f.Close()
 
 		var r io.Reader

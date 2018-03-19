@@ -5,10 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -108,12 +108,12 @@ func handleConnection(conn net.Conn) {
 	} else if req.Method == "GET" {
 
 		if req.URL == "/" {
-			files, err := filepath.Glob("*")
+			files, err := getFileNames(*directory)
 			if err != nil {
 				log.Printf("could not read directory: %v", err)
 				return
 			}
-			if err = res.Send(strings.Join(files, "\r\n")); err != nil {
+			if err = res.Send(strings.Join(files, "\r\n") + "\r\n"); err != nil {
 				log.Printf("could not send response: %v", err)
 			}
 		} else {
@@ -124,4 +124,18 @@ func handleConnection(conn net.Conn) {
 
 	}
 
+}
+
+func getFileNames(directory string) ([]string, error) {
+	files, err := ioutil.ReadDir(directory)
+	if err != nil {
+		return nil, err
+	}
+	var filenames = []string{}
+	for _, file := range files {
+		if !file.IsDir() {
+			filenames = append(filenames, file.Name())
+		}
+	}
+	return filenames, nil
 }

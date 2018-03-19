@@ -68,6 +68,18 @@ func handleConnection(conn net.Conn) {
 
 	res := http.NewResponse(conn)
 
+	filepath := *directory + req.URL
+	mutex := f2m[filepath]
+
+	if mutex != nil {
+		mutex.Lock()
+		defer mutex.Unlock()
+	} else {
+		f2m[filepath] = &sync.Mutex{}
+		f2m[filepath].Lock()
+		defer f2m[filepath].Unlock()
+	}
+
 	if req.Method == "POST" {
 
 		if req.URL == "/" {
@@ -90,17 +102,6 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		filepath := *directory + req.URL
-		mutex := f2m[filepath]
-
-		if mutex != nil {
-			mutex.Lock()
-			defer mutex.Unlock()
-		} else {
-			f2m[filepath] = &sync.Mutex{}
-			f2m[filepath].Lock()
-			defer f2m[filepath].Unlock()
-		}
 		f, err := os.Create(filepath)
 		if err != nil {
 			log.Printf("could not open file %s for writing: %v", req.URL[1:], err)
@@ -140,7 +141,8 @@ func handleConnection(conn net.Conn) {
 				log.Printf("could not send response: %v", err)
 			}
 		} else {
-			if err = res.SendFile(req.URL[1:]); err != nil {
+
+			if err = res.SendFile(filepath); err != nil {
 				log.Printf("could not send response: %v", err)
 			}
 		}

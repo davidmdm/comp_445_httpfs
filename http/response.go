@@ -71,7 +71,7 @@ func (res response) SendFile(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return res.SendStatus(404)
+			return res.Status(404).Send(fmt.Sprintf("Could not find file %s", path))
 		}
 		return res.SendStatus(500)
 	}

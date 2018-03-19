@@ -18,6 +18,7 @@ var directory *string
 var verbose *bool
 
 var f2m = map[string]*sync.Mutex{}
+var km = &sync.Mutex{}
 
 func main() {
 
@@ -69,8 +70,9 @@ func handleConnection(conn net.Conn) {
 	res := http.NewResponse(conn)
 
 	filepath := *directory + req.URL
-	mutex := f2m[filepath]
 
+	km.Lock()
+	mutex := f2m[filepath]
 	if mutex != nil {
 		mutex.Lock()
 		defer mutex.Unlock()
@@ -79,6 +81,7 @@ func handleConnection(conn net.Conn) {
 		f2m[filepath].Lock()
 		defer f2m[filepath].Unlock()
 	}
+	km.Unlock()
 
 	if req.Method == "POST" {
 
